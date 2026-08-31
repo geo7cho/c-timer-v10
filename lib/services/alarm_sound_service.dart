@@ -15,7 +15,7 @@ class AlarmSoundService {
   bool get isPlaying => _isPlaying;
 
   Future<void> _applyAudioContext() async {
-    const context = AudioContext(
+    final context = AudioContext(
       android: AudioContextAndroid(
         isSpeakerphoneOn: true,
         stayAwake: true,
