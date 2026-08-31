@@ -19,7 +19,7 @@ dependencies:
 
   # 녹음 파일을 mp3로 변환 (원본 ffmpeg_kit_flutter는 2025년에 중단되어
   # 커뮤니티 유지보수 포크인 ffmpeg_kit_flutter_new_min 사용 - 오디오 전용, 용량 작음)
-  ffmpeg_kit_flutter_new_min: ^1.6.0
+  ffmpeg_kit_flutter_new_min: ^3.6.2
 
   # 마이크 권한 요청
   permission_handler: ^11.3.1
