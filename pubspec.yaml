@@ -15,7 +15,7 @@ dependencies:
   audioplayers: ^6.1.0
 
   # 세션 녹음 (AAC로 녹음 후 mp3로 변환)
-  record: ^7.1.7
+  record: ^7.1.1
 
   # 녹음 파일을 mp3로 변환 (원본 ffmpeg_kit_flutter는 2025년에 중단되어
   # 커뮤니티 유지보수 포크인 ffmpeg_kit_flutter_new_min 사용 - 오디오 전용, 용량 작음)
