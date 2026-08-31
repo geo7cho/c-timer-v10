@@ -14,6 +14,13 @@ enum ActivationResult {
   networkError,
 }
 
+/// 활성화 시도의 결과 + 실패 시 화면에 보여줄 진단용 상세 메시지.
+class ActivationOutcome {
+  final ActivationResult result;
+  final String? detail;
+  const ActivationOutcome(this.result, {this.detail});
+}
+
 /// 기기 바인딩형 온라인 라이선스(일련번호) 서비스.
 ///
 /// 동작 방식:
@@ -54,17 +61,19 @@ class LicenseService {
     if (serial != null) await prefs.setString(_kSerial, serial);
   }
 
-  Future<ActivationResult> activate(String serial) async {
+  Future<ActivationOutcome> activate(String serial) async {
     if (licenseServerUrl.isEmpty) {
       // 서버 주소가 아직 설정되지 않은 개발/테스트 단계
       await _setLicensed(true, serial: serial);
-      return ActivationResult.ok;
+      return const ActivationOutcome(ActivationResult.ok);
     }
     final deviceId = await getOrCreateDeviceId();
+    http.Response res;
     try {
-      final res = await http
+      res = await http
           .post(
             Uri.parse(licenseServerUrl),
+            headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'action': 'activate',
               'serial': serial.trim(),
@@ -72,23 +81,46 @@ class LicenseService {
             }),
           )
           .timeout(const Duration(seconds: 12));
+    } catch (e) {
+      // 여기 들어오면 진짜로 서버에 도달조차 못한 것 (오프라인, DNS 실패, 타임아웃 등)
+      return ActivationOutcome(ActivationResult.networkError, detail: '요청 실패: $e');
+    }
 
+    try {
+      if (res.statusCode != 200) {
+        return ActivationOutcome(
+          ActivationResult.networkError,
+          detail: 'HTTP ${res.statusCode}\n${_snippet(res.body)}',
+        );
+      }
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       switch (body['result']) {
         case 'ok':
           await _setLicensed(true, serial: serial.trim());
-          return ActivationResult.ok;
+          return const ActivationOutcome(ActivationResult.ok);
         case 'blocked':
-          return ActivationResult.blocked;
+          return const ActivationOutcome(ActivationResult.blocked);
         case 'device_mismatch':
-          return ActivationResult.deviceMismatch;
+          return const ActivationOutcome(ActivationResult.deviceMismatch);
+        case 'not_found':
+          return const ActivationOutcome(ActivationResult.notFound);
         default:
-          return ActivationResult.notFound;
+          return ActivationOutcome(
+            ActivationResult.notFound,
+            detail: '서버 응답: ${_snippet(res.body)}',
+          );
       }
-    } catch (_) {
-      return ActivationResult.networkError;
+    } catch (e) {
+      // 서버 응답이 JSON이 아니었던 경우 (예: 구글 로그인 페이지, 오류 HTML 등)
+      // → 배포 URL은 맞지만 "액세스 권한" 설정 문제일 가능성이 높음
+      return ActivationOutcome(
+        ActivationResult.networkError,
+        detail: '응답 해석 실패 (HTTP ${res.statusCode}): ${_snippet(res.body)}',
+      );
     }
   }
+
+  String _snippet(String s) => s.length > 200 ? '${s.substring(0, 200)}...' : s;
 
   /// 앱 시작 시 백그라운드로 호출 - 실패하거나 네트워크가 없어도 무시하고
   /// 기존 로컬 라이선스 상태를 그대로 유지한다. 서버가 명시적으로
@@ -112,6 +144,7 @@ class LicenseService {
             }),
           )
           .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (body['result'] == 'blocked' || body['result'] == 'device_mismatch') {
         await _setLicensed(false);
