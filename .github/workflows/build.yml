@@ -1,0 +1,66 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: Flutter 설치
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: 안드로이드 네이티브 프로젝트 뼈대 생성
+        run: |
+          flutter create --platforms=android --org com.counselingtimer --project-name counseling_timer_app .scaffold_tmp
+          cp -r .scaffold_tmp/android .
+          rm -rf .scaffold_tmp
+
+      - name: 필요한 권한 자동 추가 (마이크 / 화면유지)
+        run: |
+          python3 - <<'PYEOF'
+          import re
+
+          path = "android/app/src/main/AndroidManifest.xml"
+          with open(path, encoding="utf-8") as f:
+              content = f.read()
+
+          permissions = (
+              '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
+              '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n'
+              '    <uses-permission android:name="android.permission.WAKE_LOCK" />\n'
+          )
+
+          if "RECORD_AUDIO" not in content:
+              content = re.sub(
+                  r"(<manifest[^>]*>)",
+                  r"\1\n" + permissions,
+                  content,
+                  count=1,
+              )
+              with open(path, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("권한 추가 완료")
+          else:
+              print("이미 권한이 있음 - 건너뜀")
+          PYEOF
+
+      - name: 패키지 설치
+        run: flutter pub get
+
+      - name: 릴리즈 APK 빌드
+        run: flutter build apk --release
+
+      - name: APK 업로드 (Actions 실행 결과의 Artifacts에서 다운로드)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
