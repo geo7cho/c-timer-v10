@@ -15,7 +15,7 @@ dependencies:
   audioplayers: ^6.1.0
 
   # 세션 녹음 (AAC로 녹음 후 mp3로 변환)
-  record: ^5.1.2
+  record: ^7.1.7
 
   # 녹음 파일을 mp3로 변환 (원본 ffmpeg_kit_flutter는 2025년에 중단되어
   # 커뮤니티 유지보수 포크인 ffmpeg_kit_flutter_new_min 사용 - 오디오 전용, 용량 작음)
@@ -34,7 +34,7 @@ dependencies:
   intl: ^0.19.0
 
   # 녹음 파일 공유하기
-  share_plus: ^10.1.0
+  share_plus: ^13.3.0
 
   # 기기 바인딩 라이선스(일련번호) 확인용
   http: ^1.2.2
