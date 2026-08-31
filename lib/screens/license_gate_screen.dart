@@ -38,28 +38,33 @@ class _LicenseGateScreenState extends State<LicenseGateScreen> {
       _error = null;
     });
 
-    final result = await _service.activate(serial);
+    final outcome = await _service.activate(serial);
 
     if (!mounted) return;
     setState(() => _checking = false);
 
-    switch (result) {
+    String message;
+    switch (outcome.result) {
       case ActivationResult.ok:
         widget.onActivated();
-        break;
+        return;
       case ActivationResult.notFound:
-        setState(() => _error = '등록되지 않은 일련번호입니다');
+        message = '등록되지 않은 일련번호입니다';
         break;
       case ActivationResult.blocked:
-        setState(() => _error = '차단된 일련번호입니다. 관리자에게 문의해주세요');
+        message = '차단된 일련번호입니다. 관리자에게 문의해주세요';
         break;
       case ActivationResult.deviceMismatch:
-        setState(() => _error = '이 번호는 이미 다른 기기에서 사용 중입니다');
+        message = '이 번호는 이미 다른 기기에서 사용 중입니다';
         break;
       case ActivationResult.networkError:
-        setState(() => _error = '인터넷 연결을 확인한 뒤 다시 시도해주세요');
+        message = '인터넷 연결을 확인한 뒤 다시 시도해주세요';
         break;
     }
+    if (outcome.detail != null) {
+      message += '\n\n[진단정보 - 문의 시 이 내용을 캡처해서 보내주세요]\n${outcome.detail}';
+    }
+    setState(() => _error = message);
   }
 
   @override
