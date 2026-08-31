@@ -1,0 +1,13 @@
+<!--
+  flutter create 로 생성된 android/app/src/main/AndroidManifest.xml 파일을 열고,
+  <manifest ...> 태그 바로 아래, <application ...> 태그 위에
+  아래 권한 3줄을 추가하세요.
+-->
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+
+<!--
+  <application ...> 태그에는 다음 속성이 있는지 확인하세요 (기본 생성값 그대로면 OK):
+  android:label="상담 타이머"
+-->
