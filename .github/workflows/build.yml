@@ -15,7 +15,6 @@ jobs:
       - name: Flutter 설치
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
           channel: 'stable'
 
       - name: 안드로이드 네이티브 프로젝트 뼈대 생성
