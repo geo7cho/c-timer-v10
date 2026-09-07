@@ -71,20 +71,18 @@ class LicenseService {
     final deviceId = await getOrCreateDeviceId();
     http.Response res;
     try {
-      res = await http
-          .post(
-            Uri.parse(licenseServerUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'action': 'activate',
-              'serial': normalizedSerial,
-              'deviceId': deviceId,
-            }),
-          )
-          .timeout(const Duration(seconds: 12));
+      res = await _postJsonFollowingRedirects(
+        Uri.parse(licenseServerUrl),
+        {
+          'action': 'activate',
+          'serial': normalizedSerial,
+          'deviceId': deviceId,
+        },
+        const Duration(seconds: 12),
+      );
     } catch (e) {
       // 여기 들어오면 진짜로 서버에 도달조차 못한 것 (오프라인, DNS 실패, 타임아웃 등)
-      return ActivationOutcome(ActivationResult.networkError, detail: '요청 실패: $e');
+      return ActivationOutcome(ActivationResult.networkError, detail: '요청 실패: ${e}');
     }
 
     try {
@@ -123,6 +121,34 @@ class LicenseService {
 
   String _snippet(String s) => s.length > 200 ? '${s.substring(0, 200)}...' : s;
 
+  /// Google Apps Script 웹 앱은 POST 요청에 대해 실제 결과를
+  /// script.googleusercontent.com 쪽 임시 주소로 302 리다이렉트하는 경우가 있다.
+  /// 일부 HTTP 클라이언트(안드로이드의 dart:io 포함)는 POST 요청에 대해서는
+  /// 리다이렉트를 자동으로 따라가지 않으므로, 직접 Location 헤더를 읽어
+  /// 최종 결과가 나올 때까지 따라간다.
+  Future<http.Response> _postJsonFollowingRedirects(
+    Uri uri,
+    Map<String, dynamic> payload,
+    Duration timeout,
+  ) async {
+    var res = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(payload),
+        )
+        .timeout(timeout);
+
+    var hops = 0;
+    while (res.statusCode >= 300 && res.statusCode < 400 && hops < 5) {
+      final location = res.headers['location'];
+      if (location == null || location.isEmpty) break;
+      res = await http.get(Uri.parse(location)).timeout(timeout);
+      hops++;
+    }
+    return res;
+  }
+
   /// 앱 시작 시 백그라운드로 호출 - 실패하거나 네트워크가 없어도 무시하고
   /// 기존 로컬 라이선스 상태를 그대로 유지한다. 서버가 명시적으로
   /// "차단됨" 또는 "다른 기기로 이전됨"이라고 답할 때만 로컬 인증을 해제한다.
@@ -135,16 +161,15 @@ class LicenseService {
 
     final deviceId = await getOrCreateDeviceId();
     try {
-      final res = await http
-          .post(
-            Uri.parse(licenseServerUrl),
-            body: jsonEncode({
-              'action': 'check',
-              'serial': serial,
-              'deviceId': deviceId,
-            }),
-          )
-          .timeout(const Duration(seconds: 8));
+      final res = await _postJsonFollowingRedirects(
+        Uri.parse(licenseServerUrl),
+        {
+          'action': 'check',
+          'serial': serial,
+          'deviceId': deviceId,
+        },
+        const Duration(seconds: 8),
+      );
       if (res.statusCode != 200) return;
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (body['result'] == 'blocked' || body['result'] == 'device_mismatch') {
