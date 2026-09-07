@@ -67,6 +67,7 @@ class LicenseService {
       await _setLicensed(true, serial: serial);
       return const ActivationOutcome(ActivationResult.ok);
     }
+    final normalizedSerial = serial.trim().toUpperCase();
     final deviceId = await getOrCreateDeviceId();
     http.Response res;
     try {
@@ -76,7 +77,7 @@ class LicenseService {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'action': 'activate',
-              'serial': serial.trim(),
+              'serial': normalizedSerial,
               'deviceId': deviceId,
             }),
           )
@@ -96,7 +97,7 @@ class LicenseService {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
       switch (body['result']) {
         case 'ok':
-          await _setLicensed(true, serial: serial.trim());
+          await _setLicensed(true, serial: normalizedSerial);
           return const ActivationOutcome(ActivationResult.ok);
         case 'blocked':
           return const ActivationOutcome(ActivationResult.blocked);
