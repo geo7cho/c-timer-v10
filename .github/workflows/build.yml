@@ -1,5 +1,7 @@
 name: Build APK
 
+# 이 저장소에 코드를 올리거나(push) 수정할 때마다,
+# 또는 Actions 탭에서 "Run workflow" 버튼을 눌렀을 때 자동으로 APK를 빌드합니다.
 on:
   push:
     branches: [ main, master ]
@@ -23,7 +25,7 @@ jobs:
           cp -r .scaffold_tmp/android .
           rm -rf .scaffold_tmp
 
-      - name: 필요한 권한 자동 추가 (마이크 / 화면유지)
+      - name: 필요한 권한 자동 추가 (인터넷 / 마이크 / 화면유지)
         run: |
           python3 - <<'PYEOF'
           import re
@@ -33,6 +35,8 @@ jobs:
               content = f.read()
 
           permissions = (
+              '    <uses-permission android:name="android.permission.INTERNET" />\n'
+              '    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n'
               '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
               '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n'
               '    <uses-permission android:name="android.permission.WAKE_LOCK" />\n'
