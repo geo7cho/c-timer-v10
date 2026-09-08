@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -25,7 +24,8 @@ class TimerScreen extends StatefulWidget {
 
 enum _SessionState { running, paused, finished }
 
-class _TimerScreenState extends State<TimerScreen> {
+class _TimerScreenState extends State<TimerScreen>
+    with SingleTickerProviderStateMixin {
   late Duration _remaining;
   Timer? _ticker;
   _SessionState _state = _SessionState.running;
@@ -40,10 +40,17 @@ class _TimerScreenState extends State<TimerScreen> {
   final RecorderService _recorderService = RecorderService();
   final AlarmSoundService _alarmSoundService = AlarmSoundService();
 
+  // "녹음 중" 표시를 하얀 점이 깜빡이는 형태로 보여주기 위한 애니메이션
+  late final AnimationController _recordingBlinkController;
+
   @override
   void initState() {
     super.initState();
     _remaining = widget.totalDuration;
+    _recordingBlinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
     _setup();
   }
 
@@ -123,14 +130,19 @@ class _TimerScreenState extends State<TimerScreen> {
     // 무음 모드여도 들리도록 알람음 반복 재생
     unawaited(_alarmSoundService.playLoop());
 
-    File? savedFile;
     if (_recordingActive) {
       setState(() => _statusMessage = '녹음 파일을 MP3로 변환 중...');
-      savedFile = await _recorderService.stopAndConvertToMp3();
+      final result = await _recorderService.stopAndConvertToMp3();
       setState(() {
-        _statusMessage = savedFile != null
-            ? '녹음이 저장되었습니다: ${savedFile!.uri.pathSegments.last}'
-            : '녹음 변환에 실패했습니다';
+        if (result.file != null) {
+          _statusMessage = '녹음이 저장되었습니다: ${result.file!.uri.pathSegments.last}';
+        } else {
+          _statusMessage = '녹음 변환에 실패했습니다';
+          if (result.diagnostic != null) {
+            _statusMessage =
+                '$_statusMessage\n\n[진단정보 - 문의 시 이 내용을 캡처해서 보내주세요]\n${result.diagnostic}';
+          }
+        }
       });
     }
 
@@ -173,6 +185,7 @@ class _TimerScreenState extends State<TimerScreen> {
   void dispose() {
     _ticker?.cancel();
     _snoozeTicker?.cancel();
+    _recordingBlinkController.dispose();
     _alarmSoundService.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -211,11 +224,22 @@ class _TimerScreenState extends State<TimerScreen> {
             child: Column(
               children: [
                 if (_recordingActive)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: Chip(
-                      avatar: Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
-                      label: Text('녹음 중'),
+                      avatar: FadeTransition(
+                        opacity: _recordingBlinkController,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.grey, width: 1),
+                          ),
+                        ),
+                      ),
+                      label: const Text('녹음 중'),
                     ),
                   ),
                 Expanded(
