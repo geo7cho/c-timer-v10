@@ -6,6 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+/// mp3 변환 시도 결과 + 실패 시 화면에 보여줄 진단용 상세 메시지.
+class ConversionResult {
+  final File? file;
+  final String? diagnostic;
+  const ConversionResult({this.file, this.diagnostic});
+}
+
 /// 세션 녹음 + MP3 변환을 담당하는 서비스.
 ///
 /// 흐름:
@@ -71,25 +78,57 @@ class RecorderService {
   }
 
   /// 녹음을 종료하고 MP3로 변환하여 저장한다.
-  /// 성공 시 최종 mp3 파일의 File 객체를 반환하고, 실패 시 null을 반환한다.
-  Future<File?> stopAndConvertToMp3() async {
-    if (!_isRecording) return null;
-    final rawPath = await _recorder.stop();
+  /// 성공 시 최종 mp3 파일을, 실패 시 진단 메시지를 담아 반환한다.
+  Future<ConversionResult> stopAndConvertToMp3() async {
+    if (!_isRecording) {
+      return const ConversionResult(diagnostic: '녹음이 진행 중이 아니었습니다');
+    }
+    String? rawPath;
+    try {
+      rawPath = await _recorder.stop();
+    } catch (e) {
+      _isRecording = false;
+      return ConversionResult(diagnostic: '녹음 중지 실패: $e');
+    }
     _isRecording = false;
     final sourcePath = rawPath ?? _tempPath;
-    if (sourcePath == null) return null;
+    if (sourcePath == null) {
+      return const ConversionResult(diagnostic: '녹음 원본 파일 경로를 찾을 수 없습니다');
+    }
 
     final sourceFile = File(sourcePath);
-    if (!await sourceFile.exists()) return null;
+    if (!await sourceFile.exists()) {
+      return ConversionResult(diagnostic: '녹음 원본 파일이 존재하지 않습니다: $sourcePath');
+    }
+    final sourceSize = await sourceFile.length();
+    if (sourceSize == 0) {
+      await sourceFile.delete();
+      _tempPath = null;
+      return const ConversionResult(diagnostic: '녹음 원본 파일 용량이 0바이트입니다 (녹음 자체가 되지 않은 것으로 보입니다)');
+    }
 
     final recordingsDir = await _recordingsDirectory();
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
     final outPath = '${recordingsDir.path}/상담_$timestamp.mp3';
 
-    final session = await FFmpegKit.execute(
-      '-y -i "$sourcePath" -vn -ar 44100 -ac 1 -b:a 128k "$outPath"',
-    );
-    final returnCode = await session.getReturnCode();
+    String? ffmpegError;
+    int? returnCodeValue;
+    String logsSnippet = '';
+    try {
+      final session = await FFmpegKit.execute(
+        '-y -i "$sourcePath" -vn -ar 44100 -ac 1 -b:a 128k "$outPath"',
+      );
+      final returnCode = await session.getReturnCode();
+      returnCodeValue = returnCode?.getValue();
+      if (!ReturnCode.isSuccess(returnCode)) {
+        try {
+          final logs = await session.getAllLogsAsString();
+          logsSnippet = _snippet(logs ?? '');
+        } catch (_) {}
+      }
+    } catch (e) {
+      ffmpegError = '$e';
+    }
 
     // 원본 임시 파일은 성공/실패와 무관하게 정리
     if (await sourceFile.exists()) {
@@ -97,11 +136,26 @@ class RecorderService {
     }
     _tempPath = null;
 
-    if (ReturnCode.isSuccess(returnCode)) {
-      return File(outPath);
+    if (ffmpegError != null) {
+      return ConversionResult(
+        diagnostic: '원본 크기: ${sourceSize}bytes\nffmpeg 실행 예외: $ffmpegError',
+      );
     }
-    return null;
+
+    final outFile = File(outPath);
+    if (returnCodeValue == 0 && await outFile.exists()) {
+      return ConversionResult(file: outFile);
+    }
+
+    return ConversionResult(
+      diagnostic: '원본 크기: ${sourceSize}bytes\n'
+          'ffmpeg 리턴 코드: $returnCodeValue\n'
+          '출력 파일 존재: ${await outFile.exists()}\n'
+          'ffmpeg 로그: $logsSnippet',
+    );
   }
+
+  String _snippet(String s) => s.length > 400 ? '${s.substring(0, 400)}...' : s;
 
   /// 녹음 결과가 저장되는 폴더 (앱 전용 문서 폴더 하위 recordings/)
   static Future<Directory> _recordingsDirectory() async {
