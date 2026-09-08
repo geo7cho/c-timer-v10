@@ -226,20 +226,17 @@ class _TimerScreenState extends State<TimerScreen>
                 if (_recordingActive)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Chip(
-                      avatar: FadeTransition(
-                        opacity: _recordingBlinkController,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey, width: 1),
-                          ),
+                    child: FadeTransition(
+                      opacity: _recordingBlinkController,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey, width: 1),
                         ),
                       ),
-                      label: const Text('녹음 중'),
                     ),
                   ),
                 Expanded(
