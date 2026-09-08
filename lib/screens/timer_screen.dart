@@ -64,7 +64,7 @@ class _TimerScreenState extends State<TimerScreen>
           await _recorderService.start();
           setState(() => _recordingActive = true);
         } catch (e) {
-          setState(() => _statusMessage = '녹음을 시작하지 못했습니다: ${e}');
+          setState(() => _statusMessage = '녹음을 시작하지 못했습니다: $e');
         }
       } else {
         setState(() => _statusMessage = '마이크 권한이 없어 녹음 없이 진행합니다');
@@ -131,13 +131,13 @@ class _TimerScreenState extends State<TimerScreen>
     unawaited(_alarmSoundService.playLoop());
 
     if (_recordingActive) {
-      setState(() => _statusMessage = '녹음 파일을 MP3로 변환 중...');
-      final result = await _recorderService.stopAndConvertToMp3();
+      setState(() => _statusMessage = '녹음 파일을 저장하는 중...');
+      final result = await _recorderService.stopAndSaveRecording();
       setState(() {
         if (result.file != null) {
           _statusMessage = '녹음이 저장되었습니다: ${result.file!.uri.pathSegments.last}';
         } else {
-          _statusMessage = '녹음 변환에 실패했습니다';
+          _statusMessage = '녹음 저장에 실패했습니다';
           if (result.diagnostic != null) {
             _statusMessage =
                 '$_statusMessage\n\n[진단정보 - 문의 시 이 내용을 캡처해서 보내주세요]\n${result.diagnostic}';
@@ -197,7 +197,7 @@ class _TimerScreenState extends State<TimerScreen>
     final s = d.inSeconds % 60;
     final mm = m.toString().padLeft(2, '0');
     final ss = s.toString().padLeft(2, '0');
-    return h > 0 ? '${h}:${mm}:${ss}' : '${mm}:${ss}';
+    return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
   }
 
   @override
@@ -303,7 +303,7 @@ class _TimerScreenState extends State<TimerScreen>
                           items: List.generate(30, (i) => i + 1)
                               .map((m) => DropdownMenuItem(
                                     value: m,
-                                    child: Text('${m}분'),
+                                    child: Text('$m분'),
                                   ))
                               .toList(),
                           onChanged: (v) {
