@@ -37,7 +37,7 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
     final files = dir
         .listSync()
         .whereType<File>()
-        .where((f) => f.path.toLowerCase().endsWith('.mp3'))
+        .where((f) => f.path.toLowerCase().endsWith('.m4a'))
         .toList();
 
     final items = await Future.wait(files.map(RecordingItem.fromFile));
