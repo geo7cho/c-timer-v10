@@ -1,5 +1,5 @@
 name: counseling_timer_app
-description: "상담용 타이머 앱 - 세션 타이머 + 무음 모드 알람 + 자동 녹음(MP3 변환)"
+description: "상담용 타이머 앱 - 세션 타이머 + 무음 모드 알람 + 자동 녹음(M4A)"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -14,12 +14,8 @@ dependencies:
   # 무음/진동 모드에서도 알람음이 들리도록 오디오 스트림을 지정해 재생
   audioplayers: ^6.1.0
 
-  # 세션 녹음 (AAC로 녹음 후 mp3로 변환)
+  # 세션 녹음 (AAC/m4a로 녹음 - 변환 없이 그대로 저장, 대부분의 플레이어에서 재생 가능)
   record: ^7.1.1
-
-  # 녹음 파일을 mp3로 변환 (원본 ffmpeg_kit_flutter는 2025년에 중단되어
-  # 커뮤니티 유지보수 포크인 ffmpeg_kit_flutter_new_min 사용 - 오디오 전용, 용량 작음)
-  ffmpeg_kit_flutter_new_min: ^3.6.2
 
   # 마이크 권한 요청
   permission_handler: ^11.3.1
