@@ -32,6 +32,11 @@ class _TimerScreenState extends State<TimerScreen> {
   bool _recordingActive = false;
   String? _statusMessage;
 
+  // 알람 스누즈: 1분 단위로 원하는 시간을 골라서, 그 시간이 지나면 알람을 한 번 더 울림
+  int _snoozeMinutes = 1;
+  Timer? _snoozeTicker;
+  Duration? _snoozeRemaining;
+
   final RecorderService _recorderService = RecorderService();
   final AlarmSoundService _alarmSoundService = AlarmSoundService();
 
@@ -52,7 +57,7 @@ class _TimerScreenState extends State<TimerScreen> {
           await _recorderService.start();
           setState(() => _recordingActive = true);
         } catch (e) {
-          setState(() => _statusMessage = '녹음을 시작하지 못했습니다: $e');
+          setState(() => _statusMessage = '녹음을 시작하지 못했습니다: ${e}');
         }
       } else {
         setState(() => _statusMessage = '마이크 권한이 없어 녹음 없이 진행합니다');
@@ -138,9 +143,36 @@ class _TimerScreenState extends State<TimerScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 지금 울리고 있는(또는 이미 끈) 알람을 멈추고, 선택한 스누즈 시간이
+  /// 지나면 알람을 한 번 더 울리도록 예약한다.
+  Future<void> _startSnooze() async {
+    await _alarmSoundService.stop();
+    _snoozeTicker?.cancel();
+    if (!mounted) return;
+    setState(() => _snoozeRemaining = Duration(minutes: _snoozeMinutes));
+
+    _snoozeTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final remaining = _snoozeRemaining;
+      if (remaining == null) return;
+      if (remaining.inSeconds <= 1) {
+        _snoozeTicker?.cancel();
+        setState(() => _snoozeRemaining = null);
+        unawaited(_alarmSoundService.playLoop());
+      } else {
+        setState(() => _snoozeRemaining = remaining - const Duration(seconds: 1));
+      }
+    });
+  }
+
+  void _cancelSnooze() {
+    _snoozeTicker?.cancel();
+    setState(() => _snoozeRemaining = null);
+  }
+
   @override
   void dispose() {
     _ticker?.cancel();
+    _snoozeTicker?.cancel();
     _alarmSoundService.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -152,7 +184,7 @@ class _TimerScreenState extends State<TimerScreen> {
     final s = d.inSeconds % 60;
     final mm = m.toString().padLeft(2, '0');
     final ss = s.toString().padLeft(2, '0');
-    return h > 0 ? '$h:$mm:$ss' : '$mm:$ss';
+    return h > 0 ? '${h}:${mm}:${ss}' : '${mm}:${ss}';
   }
 
   @override
@@ -226,6 +258,45 @@ class _TimerScreenState extends State<TimerScreen> {
                       icon: const Icon(Icons.notifications_off),
                       label: const Text('알람 끄기'),
                     ),
+                  if (_snoozeRemaining != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '${_format(_snoozeRemaining!)} 후 알람이 한 번 더 울립니다',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _cancelSnooze,
+                      icon: const Icon(Icons.close),
+                      label: const Text('스누즈 취소'),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('스누즈 '),
+                        DropdownButton<int>(
+                          value: _snoozeMinutes,
+                          items: List.generate(30, (i) => i + 1)
+                              .map((m) => DropdownMenuItem(
+                                    value: m,
+                                    child: Text('${m}분'),
+                                  ))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) setState(() => _snoozeMinutes = v);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        OutlinedButton(
+                          onPressed: _startSnooze,
+                          child: const Text('후 다시 알림'),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Row(
                     children: [
