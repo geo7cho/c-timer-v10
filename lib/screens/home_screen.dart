@@ -11,14 +11,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // 최소 30분(00:30) ~ 최대 180분(03:00), 5분 단위로 조절
-  static const int _minMinutes = 30;
+  // 최소 40분(00:40) ~ 최대 180분(03:00), 5분 단위로 조절
+  static const int _minMinutes = 40;
   static const int _maxMinutes = 180;
 
   int _totalMinutes = 50; // 기본값: 상담 세션에서 흔히 쓰는 50분
   bool _recordingEnabled = false;
 
-  static const List<int> _presets = [30, 45, 50, 60, 90, 120, 180];
+  static const List<int> _presets = [40, 45, 50, 60, 90, 120, 180];
 
   String get _durationLabel {
     final h = _totalMinutes ~/ 60;
@@ -152,7 +152,7 @@ class _DurationCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                Text('00:30', style: TextStyle(color: Colors.grey)),
+                Text('00:40', style: TextStyle(color: Colors.grey)),
                 Text('03:00', style: TextStyle(color: Colors.grey)),
               ],
             ),
