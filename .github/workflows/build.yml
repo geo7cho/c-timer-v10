@@ -25,7 +25,7 @@ jobs:
           cp -r .scaffold_tmp/android .
           rm -rf .scaffold_tmp
 
-      - name: 필요한 권한 자동 추가 (인터넷 / 마이크 / 화면유지)
+      - name: 필요한 권한 자동 추가 (마이크 / 화면유지)
         run: |
           python3 - <<'PYEOF'
           import re
@@ -54,6 +54,39 @@ jobs:
               print("권한 추가 완료")
           else:
               print("이미 권한이 있음 - 건너뜀")
+          PYEOF
+
+      - name: 최소 안드로이드 버전 조정 (mp3 변환 라이브러리 요구사항)
+        run: |
+          python3 - <<'PYEOF'
+          import glob
+          import re
+
+          # ffmpeg_kit_flutter_new_min(mp3 변환)은 안드로이드 API 24 이상을 요구합니다.
+          # flutter create로 새로 만든 프로젝트는 기본값이 그보다 낮아서,
+          # 녹음은 되지만 mp3 변환만 조용히 실패하는 원인이 됩니다.
+          candidates = (
+              glob.glob("android/app/build.gradle.kts")
+              + glob.glob("android/app/build.gradle")
+          )
+          if not candidates:
+              raise SystemExit("android/app/build.gradle(.kts) 파일을 찾을 수 없습니다")
+
+          path = candidates[0]
+          with open(path, encoding="utf-8") as f:
+              content = f.read()
+
+          if path.endswith(".kts"):
+              new_content, n = re.subn(r"minSdk\s*=\s*[^\n]+", "minSdk = 24", content)
+          else:
+              new_content, n = re.subn(r"minSdkVersion\s+\S+", "minSdkVersion 24", content)
+
+          if n == 0:
+              raise SystemExit(f"{path} 에서 minSdk 설정 줄을 찾지 못했습니다")
+
+          with open(path, "w", encoding="utf-8") as f:
+              f.write(new_content)
+          print(f"{path} 의 minSdk를 24로 설정 완료 ({n}곳 변경)")
           PYEOF
 
       - name: 패키지 설치
